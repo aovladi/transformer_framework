@@ -11,6 +11,7 @@ from colorama import Fore
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import MixedPrecision, StateDictType
 from torch.utils.data.distributed import DistributedSampler
+from torchdistx.gossip_grad import GossipGraDState, Topology, gossip_grad_hook
 
 import environment
 import model_checkpointing
@@ -174,6 +175,21 @@ def fsdp_main():
         device_id=torch.cuda.current_device(),
         forward_prefetch=cfg.forward_prefetch,
     )
+    local_process_group, _ = dist.new_subgroups(group_size=1)
+    num_nodes = torch.cuda.device_count()
+    master_ranks = list(range(num_nodes))
+    master_process_group = dist.new_group(ranks=master_ranks)
+    gossipgrad_state = GossipGraDState(
+        topology=Topology.DISSEMINATION,
+        local_process_group=local_process_group,
+        num_nodes=num_nodes,
+        master_process_group=master_process_group,
+        proc_per_node=1,
+    )
+    model.register_comm_hook(gossipgrad_state, gossip_grad_hook)
+
+
+
 
     if cfg.fsdp_activation_checkpointing:
         config.fsdp_checkpointing(model)

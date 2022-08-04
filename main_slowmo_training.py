@@ -11,6 +11,7 @@ from colorama import Fore
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import MixedPrecision, StateDictType
 from torch.utils.data.distributed import DistributedSampler
+from torchdistx.slowmo import slowmo_comm, slowmo_optimizer
 
 import environment
 import model_checkpointing
@@ -174,6 +175,8 @@ def fsdp_main():
         device_id=torch.cuda.current_device(),
         forward_prefetch=cfg.forward_prefetch,
     )
+    slowmo_state = slowmo_comm.SlowMoState(subgroup=None, sync_grads=True)
+    model.register_comm_hook(slowmo_state, slowmo_comm.slowmo_hook)
 
     if cfg.fsdp_activation_checkpointing:
         config.fsdp_checkpointing(model)
@@ -241,8 +244,14 @@ def fsdp_main():
     model.zero_grad()
 
     # optimizer ----------
-    optimizer = torch.optim.AdamW(
+    base_optimizer = torch.optim.AdamW(
         model.parameters(), lr=1e-3, weight_decay=0, amsgrad=True
+    )
+    optimizer = slowmo_optimizer.SlowMomentumOptimizer(
+        base_optim=base_optimizer,
+        slowmo_freq=12,#int(0.5*len(train_loader)),
+        slowmo_factor = 0.6,
+        slowmo_lr=1.0
     )
     # optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
     if rank == 0:

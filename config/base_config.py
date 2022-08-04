@@ -23,11 +23,11 @@ class base_config:
     total_steps_to_run: int = 5
 
     # training
-    batch_size_training: int = 15
+    batch_size_training: int = 8
     num_epochs: int = 1
 
     # sharding policy
-    sharding_strategy: ShardingStrategy = ShardingStrategy.FULL_SHARD
+    sharding_strategy: ShardingStrategy = ShardingStrategy.NO_SHARD #ShardingStrategy.FULL_SHARD
     print_sharding_plan: bool = False
 
     run_profiler: bool = False
@@ -52,15 +52,15 @@ class base_config:
 
 
     # activation checkpointing
-    fsdp_activation_checkpointing: bool = True
+    fsdp_activation_checkpointing: bool = False
 
     # validation
     run_validation: bool = False
-    val_batch_size = 4
+    val_batch_size = 8#128
 
     # logging
-    track_memory = True
-    memory_report: bool = True
+    track_memory = False
+    memory_report: bool = False
     nccl_debug_handler: bool = True
     distributed_debug: bool = True
 
