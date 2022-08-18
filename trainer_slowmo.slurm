@@ -30,12 +30,14 @@ export NCCL_DEBUG_SUBSYS=WARN
 export PYTHONFAULTHANDLER=1
 
 export LD_LIBRARY_PATH=/opt/amazon/efa/lib:$LD_LIBRARY_PATH
-export LD_LIBRARY_PATH=/path/to/aws-ofi-nccl/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=/data/home/andolga/cluster/work/aws-ofi-nccl/lib:$LD_LIBRARY_PATH
 export CUDA_LAUNCH_BLOCKING=0
 
 # on your cluster you might need these:
 # set the network interface
 export NCCL_SOCKET_IFNAME="ens"#"eth0,en,eth,em,bond"
+#export RESNET="True"
+#export IMAGENET="True"
 #dcgmi profile --pause
 srun torchrun --nnodes 4 --nproc_per_node 8 --rdzv_id 101 --rdzv_backend c10d --rdzv_endpoint "$head_node_ip:29500" ./main_slowmo_training.py
 #dcgmi profile --resume

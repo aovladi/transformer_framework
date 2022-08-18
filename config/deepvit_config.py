@@ -22,7 +22,7 @@ if os.getenv('IMAGENET'):
     TEST_DATA_PATH = "/datasets01/imagenet_full_size/061417/val/"
     NUM_CLASSES=1000
 else:
-    TRAIN_DATA_PATH = "/data/home/andolga/data/imagenette2-320/train"
+    TRAIN_DATA_PATH = "/data/home/andolga/data/imagenette2-320/train/"
     TEST_DATA_PATH = "/data/home/andolga/data/imagenette2-320/val/"
     NUM_CLASSES=10
 
@@ -68,13 +68,13 @@ def build_model(model_size: str):
     model_args = dict()
     if model_size == "60M":
         model_args = {
-            "image_size": 256,
+            "image_size": 224,
             "patch_size": 32,
             "num_classes": NUM_CLASSES,
-            "dim": 32,#1024,
+            "dim": 128,#32,#1024,
             "depth": 10,#1,
             "heads": 6,#1,
-            "mlp_dim": 64,#2048,
+            "mlp_dim": 256,#64,#2048,
             "dropout": 0.1,
             "emb_dropout": 0.1,
         }
@@ -82,9 +82,9 @@ def build_model(model_size: str):
         model_args = {
             "image_size": 224,
             "patch_size": 32,
-            "num_classes": 1000,
+            "num_classes": NUM_CLASSES,
             "dim": 384,
-            "depth": 16,#59,
+            "depth": 59,
             "heads": 8,
             "mlp_dim": 1152,
             "dropout": 0.1,
@@ -181,6 +181,9 @@ def build_model(model_size: str):
     if os.getenv('RESNET') is not None:
         arch="resnet101"
         model = models.__dict__[arch](num_classes=NUM_CLASSES)
+    elif os.getenv('REGNET') is not None:
+        arch="regnet_y_16gf"    # "regnet_y_32gf" OOM
+        model = models.__dict__[arch](num_classes=NUM_CLASSES)
     else:
         model = DeepViT(**model_args)
 
@@ -218,14 +221,14 @@ def get_dataset(path=TRAIN_DATA_PATH, train=True):
             transforms.RandomResizedCrop(224),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
-           # normalize,
+            normalize,
         ])
     else:
         input_transform = transforms.Compose([
-            transforms.Resize((256,256)),
+            transforms.Resize((256, 256)),
             transforms.CenterCrop(224),
             transforms.ToTensor(),
-            #normalize,
+            normalize,
         ])
     return torchvision.datasets.ImageFolder(path, transform=input_transform)#, target_transform=one_hot_encoder)
     #return GeneratedDataset()
@@ -256,8 +259,10 @@ def train(model, data_loader, torch_profiler, optimizer, memmax, local_rank, tra
         outputs = model(inputs)
         loss = loss_function(outputs, targets)
         loss.backward()
+
         if optimizer:
             optimizer.step()
+
 
         # update durations and memory tracking
         if local_rank == 0:

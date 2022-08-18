@@ -23,7 +23,7 @@ class base_config:
     total_steps_to_run: int = 5
 
     # training
-    batch_size_training: int = 8
+    batch_size_training: int = 8#64
     num_epochs: int = 1
 
     # sharding policy
@@ -56,7 +56,7 @@ class base_config:
 
     # validation
     run_validation: bool = False
-    val_batch_size = 8#128
+    val_batch_size = 8#4#8#32#8#128
 
     # logging
     track_memory = False

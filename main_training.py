@@ -94,7 +94,7 @@ def fsdp_main():
     setup_tasks(rank, world_size, cfg)
 
     if torch.distributed.is_initialized():
-        torch.cuda.set_device(local_rank)
+       torch.cuda.set_device(local_rank)
 
     # setup memory tracking for perf
     if local_rank == 0:
@@ -249,59 +249,7 @@ def fsdp_main():
         print(f"==> optimizer = Adam\n")
 
     criterion = torch.nn.CrossEntropyLoss()
-    """
-    for epoch in range(80):
-        model.train()
-        epoch_loss = 0
-        epoch_accuracy = 0
-        if local_rank == 0:
-            inner_pbar = tqdm.tqdm(
-                range(len(data_loader)), colour="blue", desc="Train Epoch"
-            )
-        for data, label in data_loader:
-            data = data.to(local_rank)
-            label = label.to(local_rank)
 
-            output = model(data)
-            loss = criterion(output, label)
-
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-            acc = (output.argmax(dim=1) == label).float().mean()
-            epoch_accuracy += acc / len(data_loader)
-            epoch_loss += loss / len(data_loader)
-
-            if local_rank == 0:
-                inner_pbar.update(1)
-
-        with torch.no_grad():
-            epoch_val_accuracy = 0
-            epoch_val_loss = 0
-            model.eval()
-            for data, label in val_loader:
-                data = data.to(local_rank)
-                label = label.to(local_rank)
-
-                val_output = model(data)
-                val_loss = criterion(val_output, label)
-
-                acc = (val_output.argmax(dim=1) == label).float().mean()
-                epoch_val_accuracy += acc / len(val_loader)
-                epoch_val_loss += val_loss / len(val_loader)
-
-        metrics = torch.tensor([epoch_loss, epoch_accuracy, epoch_val_loss, epoch_val_accuracy]).to(local_rank)
-        dist.all_reduce(metrics, op=dist.ReduceOp.SUM)
-        metrics /=world_size
-        epoch_loss, epoch_accuracy, epoch_val_loss, epoch_val_accuracy = metrics[0], metrics[1], metrics[2], metrics[3]
-        if local_rank == 0:
-            print(
-                f"Epoch : {epoch+1} - loss : {epoch_loss:.4f} - acc: {epoch_accuracy:.4f} - val_loss : {epoch_val_loss:.4f} - val_acc: {epoch_val_accuracy:.4f}\n"
-            )
-
-    return
-    """
     # load optimizer checkpoint
     if cfg.load_optimizer:
         model_checkpointing.load_optimizer_checkpoint(model, optimizer, rank, cfg)
@@ -323,15 +271,19 @@ def fsdp_main():
         ) as torch_profiler:
             config.train(model, data_loader, torch_profiler, optimizer, memmax, local_rank, tracking_duration, cfg.total_steps_to_run)
     else:
-        if rank == 0:
-            start_time = time.time()
-        for _ in range(40):
+        epoch_durations = []
+        for _ in range(90):
+            if rank == 0:
+                start_time = time.time()
             config.train(model, data_loader, None, optimizer, memmax, rank, tracking_duration, cfg.total_steps_to_run)
+            if rank == 0:
+                epoch_durations.append(time.time() - start_time)
             config.validation(model, local_rank, rank, val_loader, world_size)
 
         if rank == 0:
-            end_time = time.time() - start_time
-            print(f"Total duration: {end_time}")
+            print(f"Total training duration: {sum(epoch_durations)}")
+            for idx, entry in enumerate(epoch_durations):
+                print(f"Epoch {idx} - {entry}")
 
         # checkpointing for model and optimizer
         if cfg.save_model_checkpoint:
